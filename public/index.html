@@ -101,6 +101,12 @@
   .chip:hover{border-color:var(--indigo);color:var(--indigo)}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .api-note{font-size:12px;color:var(--ink-soft);margin-top:10px;background:rgba(91,67,245,.06);border:1px solid rgba(91,67,245,.15);border-radius:10px;padding:9px 12px}
+  .gsc-box{border:1px solid var(--line);border-radius:14px;padding:18px;background:linear-gradient(180deg,rgba(91,67,245,.04),transparent)}
+  .gsc-row{display:flex;gap:12px;align-items:center;font-size:14px}
+  .gsc-ic{flex:none;width:34px;height:34px;border-radius:9px;background:rgba(91,67,245,.12);color:var(--indigo);display:grid;place-items:center;font-size:16px}
+  .gsc-select{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-family:inherit;font-size:14.5px;background:#fff}
+  .manual-sep{display:flex;align-items:center;gap:12px;color:var(--ink-soft);font-size:12.5px;margin:22px 0 6px}
+  .manual-sep::before,.manual-sep::after{content:"";flex:1;height:1px;background:var(--line)}
   .tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
   .tool-pick{border:1px solid var(--line);border-radius:12px;padding:13px 15px;cursor:pointer;background:#fff;text-align:left;transition:.15s;font-family:inherit}
   .tool-pick:hover{border-color:var(--indigo)}
@@ -271,8 +277,30 @@
       </div>
 
       <div class="app-panel" data-panel="analysis">
-        <div class="panel-head"><h3>Paste your site data, get an action plan</h3>
-          <p>Drop in your URL plus any data you have (top pages, keywords, positions, recent changes). Get a prioritized plan.</p></div>
+        <div class="panel-head"><h3>Connect Search Console, get an action plan</h3>
+          <p>Connect Google Search Console to analyze your real ranking data automatically — or paste data manually below.</p></div>
+
+        <div class="gsc-box" id="gscBox">
+          <div id="gscDisconnected">
+            <div class="gsc-row"><span class="gsc-ic">🔗</span>
+              <div><b>Connect Google Search Console</b><br>
+              <span class="stat">Pulls your real queries, pages, clicks &amp; positions (read-only).</span></div></div>
+            <button class="btn btn-primary" id="gscConnect" style="margin-top:12px">Connect Search Console</button>
+          </div>
+          <div id="gscConnected" style="display:none">
+            <div class="gsc-row"><span class="gsc-ic">✓</span>
+              <div>Connected as <b id="gscEmail"></b></div></div>
+            <label class="fld">Choose a verified property</label>
+            <select id="gscSite" class="gsc-select"></select>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" id="gscAnalyze">Analyze my real data</button>
+              <button class="btn btn-ghost" id="gscLogout">Disconnect</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="manual-sep"><span>or paste data manually</span></div>
+
         <label class="fld">Your website URL</label>
         <input type="url" id="anUrl" placeholder="https://yoursite.com">
         <label class="fld">Your site data / context</label>
@@ -471,6 +499,42 @@ anRun.addEventListener('click',async()=>{
   catch(e){anOut.innerHTML="⚠️ AI unavailable — check the server is running and your API key is set.";}
   anRun.disabled=false;anRun.textContent="Generate action plan";
 });
+
+/* ---------- Google Search Console connect flow ---------- */
+const gscConnect=document.getElementById('gscConnect'),gscLogout=document.getElementById('gscLogout'),
+      gscAnalyze=document.getElementById('gscAnalyze'),gscSite=document.getElementById('gscSite'),
+      gscEmail=document.getElementById('gscEmail'),gscDisc=document.getElementById('gscDisconnected'),
+      gscConn=document.getElementById('gscConnected');
+async function refreshGSC(){
+  try{
+    const me=await (await fetch('/api/me')).json();
+    if(me.connected){
+      gscDisc.style.display='none';gscConn.style.display='block';
+      gscEmail.textContent=me.email||'your Google account';
+      try{
+        const s=await (await fetch('/api/gsc/sites')).json();
+        const sites=s.sites||[];
+        gscSite.innerHTML=sites.length?sites.map(x=>'<option>'+x+'</option>').join('')
+          :'<option value="">No verified properties on this account</option>';
+      }catch(e){gscSite.innerHTML='<option value="">Could not load properties</option>';}
+    }else{gscDisc.style.display='block';gscConn.style.display='none';}
+  }catch(e){/* server may not have OAuth configured; leave default */}
+}
+if(gscConnect)gscConnect.onclick=()=>{location.href='/auth/google';};
+if(gscLogout)gscLogout.onclick=async()=>{await fetch('/auth/logout',{method:'POST'});refreshGSC();};
+if(gscAnalyze)gscAnalyze.onclick=async()=>{
+  const site=gscSite.value;
+  if(!site){anOut.innerHTML='Pick a verified property first.';return;}
+  gscAnalyze.disabled=true;gscAnalyze.innerHTML='<span class="spin"></span> Analyzing your data…';anOut.innerHTML='';
+  try{
+    const r=await fetch('/api/gsc/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({siteUrl:site})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Analysis failed');
+    anOut.innerHTML=md(d.text);
+  }catch(e){anOut.innerHTML='⚠️ '+e.message;}
+  gscAnalyze.disabled=false;gscAnalyze.textContent='Analyze my real data';
+};
+refreshGSC();
 
 const coRun=document.getElementById('coRun'),coOut=document.getElementById('coOut');
 coRun.addEventListener('click',async()=>{
