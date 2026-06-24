@@ -46,7 +46,7 @@ const baseUrl = req => {
 // --- Gemini ---
 async function callGemini(messages, system) {
   const contents = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(m.content||'') }] }));
-  const payload = { contents, generationConfig: { maxOutputTokens: 1400 } };
+  const payload = { contents, generationConfig: { maxOutputTokens: 3000 } };
   if (system) payload.systemInstruction = { parts: [{ text: system }] };
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_KEY)}`;
   const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
