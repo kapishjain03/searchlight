@@ -1,0 +1,13 @@
+{
+  "name": "searchlight",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Searchlight — self-hosted SEO copilot (landing page + AI tools)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
